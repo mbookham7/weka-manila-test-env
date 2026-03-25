@@ -1,0 +1,39 @@
+# ─── REQUIRED — fill these in before running terraform apply ─────────────────
+
+# Your get.weka.io download token (request at https://get.weka.io)
+get_weka_io_token = "REPLACE_WITH_YOUR_WEKA_IO_TOKEN"
+
+# Your SSH public key (e.g. contents of ~/.ssh/id_rsa.pub)
+ssh_public_key = "ssh-rsa AAAA... your-key-comment"
+
+# Your public IP address in CIDR notation (find with: curl ifconfig.me)
+admin_cidr = "0.0.0.0/0"  # CHANGE THIS to your actual IP: e.g. "203.0.113.5/32"
+
+# ─── AWS region / AZ ─────────────────────────────────────────────────────────
+
+aws_region            = "eu-west-1"
+availability_zone     = "eu-west-1a"
+alb_availability_zone = "eu-west-1b"
+
+# ─── Resource naming ─────────────────────────────────────────────────────────
+
+prefix       = "weka-test"
+cluster_name = "manila-dev"
+
+# ─── Weka cluster ────────────────────────────────────────────────────────────
+
+weka_cluster_size  = 6
+weka_instance_type = "i3en.2xlarge"
+weka_version       = ""  # Leave empty to use latest, or pin e.g. "4.4.10.196"
+
+# ─── DevStack ────────────────────────────────────────────────────────────────
+
+devstack_instance_type = "m5.4xlarge"
+devstack_branch        = "stable/2024.2"
+driver_branch          = "main"
+
+# ─── Credentials ─────────────────────────────────────────────────────────────
+
+# Password for OpenStack admin, RabbitMQ, MariaDB
+# Must be set; shown here as a reminder to choose something strong
+admin_password = "WekaM@nila2024!"  # CHANGE THIS in production

@@ -105,13 +105,17 @@ alb_availability_zone = "eu-west-1b"
 
 ```bash
 make init
-make apply SSH_KEY=~/.ssh/id_rsa
+make apply
 ```
 
 Terraform will provision:
 - VPC with 3 subnets across 2 AZs
 - 6× i3en.2xlarge Weka backend nodes + ALB
 - 1× m5.4xlarge DevStack host (bootstraps automatically via cloud-init)
+
+> The bootstrap script waits for the Weka cluster to fully clusterize, then
+> automatically deletes the default Weka filesystem (which otherwise consumes
+> all cluster capacity) before starting DevStack.
 
 ### 3. Wait for readiness
 
@@ -193,24 +197,35 @@ source /opt/stack/devstack/openrc admin admin
 # List services
 manila service-list
 
-# List backend pools
+# List backend pools (should show NFS and WEKAFS protocols)
 manila pool-list --detail
 
-# Create a test share
-manila create weka 1 --name test-share --share-type weka
+# Create share types (one per protocol)
+manila type-create weka_nfs false --extra-specs share_backend_name=weka
+manila type-create weka_wekafs false --extra-specs share_backend_name=weka
+
+# Create test shares
+manila create --share-type weka_nfs --name test-nfs NFS 1
+manila create --share-type weka_wekafs --name test-wekafs WEKAFS 1
 
 # Wait for available status
-manila show test-share
+manila list
 
 # Grant access
-manila access-allow test-share ip 0.0.0.0/0 --access-level rw
+manila access-allow test-nfs ip 10.0.0.0/8 --access-level rw
+manila access-allow test-wekafs user myuser --access-level rw
 
 # List access rules
-manila access-list test-share
+manila access-list test-nfs
+manila access-list test-wekafs
 
-# Check export location
-manila share-export-location-list test-share
+# Check export locations
+manila share-export-location-list test-nfs
+manila share-export-location-list test-wekafs
 ```
+
+Both `NFS` and `WEKAFS` protocols are fully supported. The driver automatically
+patches Manila's `SUPPORTED_SHARE_PROTOCOLS` to add `WEKAFS` during DevStack setup.
 
 ### Mount the share (WekaFS POSIX)
 

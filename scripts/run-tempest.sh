@@ -59,6 +59,10 @@ fi
 
 cd "${TEMPEST_DIR}"
 
+# Use the DevStack virtualenv — system 'python' is not available on Ubuntu 24.04
+VENV=/opt/stack/data/venv
+export PATH="${VENV}/bin:${PATH}"
+
 echo "--- Manila service list ---"
 manila service-list
 
@@ -67,24 +71,13 @@ echo "--- Manila pool list ---"
 manila pool-list --detail
 
 echo ""
-echo "--- Available tempest Manila tests ---"
-python -m pytest \
-    --config-file "${TEMPEST_DIR}/etc/tempest.conf" \
-    --collect-only \
-    -q \
-    -k "${TEST_PATTERN}" \
-    tempest/api/share/ 2>/dev/null | head -50 || true
+echo "--- Running Manila tempest tests ---"
+# stestr is the test runner used by DevStack / tempest
+stestr run --concurrency 2 "${TEST_PATTERN}" || true
 
 echo ""
-echo "--- Running Manila tempest tests ---"
-python -m pytest \
-    --config-file "${TEMPEST_DIR}/etc/tempest.conf" \
-    -v \
-    -k "${TEST_PATTERN}" \
-    --tb=short \
-    --junitxml=/tmp/manila-tempest-results.xml \
-    tempest/api/share/ \
-    || true   # Don't fail the script if tests fail — collect results first
+echo "--- Test summary ---"
+stestr last 2>/dev/null || true
 
 echo "Tests complete."
 REMOTE_SCRIPT
@@ -93,24 +86,8 @@ REMOTE_SCRIPT
 echo ""
 echo "--- Downloading test results ---"
 scp ${SSH_OPTS} -i "${SSH_KEY}" \
-    "ubuntu@${DEVSTACK_IP}:/tmp/manila-tempest-results.xml" \
-    "${RESULTS_DIR}/results.xml" 2>/dev/null || echo "No XML results to download"
-
-scp ${SSH_OPTS} -i "${SSH_KEY}" \
     "ubuntu@${DEVSTACK_IP}:/var/log/stack.sh.log" \
     "${RESULTS_DIR}/stack.sh.log" 2>/dev/null || echo "No stack.sh log to download"
 
 echo ""
 echo "=== Results saved to: ${RESULTS_DIR} ==="
-
-# Summary
-if [ -f "${RESULTS_DIR}/results.xml" ]; then
-    PASSED=$(grep -c 'classname=' "${RESULTS_DIR}/results.xml" || echo 0)
-    FAILED=$(grep -c '<failure' "${RESULTS_DIR}/results.xml" || echo 0)
-    ERROR_COUNT=$(grep -c '<error' "${RESULTS_DIR}/results.xml" || echo 0)
-    echo ""
-    echo "Test summary:"
-    echo "  Passed: ~$((PASSED - FAILED - ERROR_COUNT))"
-    echo "  Failed: ${FAILED}"
-    echo "  Errors: ${ERROR_COUNT}"
-fi

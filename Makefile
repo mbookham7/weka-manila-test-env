@@ -18,7 +18,7 @@ WEKA_SECRET_ID = $(shell cd $(TF_DIR) && terraform output -raw weka_secret_id 2>
 LAMBDA_NAME    = $(shell cd $(TF_DIR) && terraform output -raw weka_lambda_status_name 2>/dev/null | grep -v Warning || echo "")
 AWS_REGION     = $(shell cd $(TF_DIR) && terraform output -raw aws_region 2>/dev/null | grep -E '^[a-z]+-[a-z]+-[0-9]+$$' || echo "eu-west-1")
 
-.PHONY: all init plan apply wait wait-weka wait-devstack ssh ssh-weka test destroy clean help
+.PHONY: all init patch-weka-iam plan apply wait wait-weka wait-devstack ssh ssh-weka test destroy clean help
 
 all: help
 
@@ -27,6 +27,24 @@ all: help
 init:
 	@echo "=== Initializing Terraform ==="
 	cd $(TF_DIR) && terraform init
+	@$(MAKE) patch-weka-iam --no-print-directory
+
+# Patch the upstream weka/weka/aws module (v1.0.23) to add the ec2:Describe*
+# permissions that VPC-attached Lambda functions require. The module's IAM
+# policy is missing these, causing InsufficientRolePermissions on first apply.
+# This target is idempotent — safe to run multiple times.
+patch-weka-iam:
+	@LAMBDA_TF="$(TF_DIR)/.terraform/modules/weka_cluster.weka/modules/iam/lambda.tf"; \
+	if [ ! -f "$$LAMBDA_TF" ]; then \
+	  echo "patch-weka-iam: module not yet downloaded, skipping"; \
+	elif grep -q "ec2:DescribeSubnets" "$$LAMBDA_TF"; then \
+	  echo "patch-weka-iam: VPC permissions already present, skipping"; \
+	else \
+	  echo "patch-weka-iam: adding ec2:Describe* VPC permissions to Lambda IAM policy..."; \
+	  sed -i.bak 's/"ec2:DescribeInstances",/"ec2:DescribeInstances",\n          "ec2:DescribeSubnets",\n          "ec2:DescribeSecurityGroups",\n          "ec2:DescribeVpcs",/' "$$LAMBDA_TF" && \
+	  rm -f "$$LAMBDA_TF.bak" && \
+	  echo "patch-weka-iam: patch applied successfully"; \
+	fi
 
 fmt:
 	@echo "=== Formatting Terraform files ==="
@@ -42,7 +60,12 @@ plan: init
 
 apply: init
 	@echo "=== Applying Terraform configuration ==="
-	cd $(TF_DIR) && terraform apply -var-file=$(TFVARS)
+	cd $(TF_DIR) && terraform apply -var-file=$(TFVARS) || \
+	  (echo "" && \
+	   echo "First apply attempt failed (likely IAM propagation delay for Lambda VPC permissions)." && \
+	   echo "Retrying in 60 seconds..." && \
+	   sleep 60 && \
+	   terraform apply -var-file=$(TFVARS))
 	@echo ""
 	@echo "=== Deployment started! ==="
 	@echo "Now run: make wait SSH_KEY=$(SSH_KEY)"

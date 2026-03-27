@@ -110,6 +110,16 @@ resource "aws_security_group" "weka" {
     cidr_blocks = [var.vpc_cidr]
   }
 
+  # Weka REST API from admin CIDR — required for NLB TCP passthrough
+  # (NLB preserves client source IP, so target SG must allow admin_cidr directly)
+  ingress {
+    description = "Weka REST API from admin CIDR (external NLB access)"
+    from_port   = 14000
+    to_port     = 14000
+    protocol    = "tcp"
+    cidr_blocks = [var.admin_cidr]
+  }
+
   # SSH access for administration
   ingress {
     description = "SSH from admin CIDR"

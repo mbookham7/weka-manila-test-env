@@ -56,6 +56,85 @@ module "weka_cluster" {
   tags_map   = local.common_tags
 }
 
+# ─── External NLB for Weka cluster access ────────────────────────────────────
+# The upstream weka/weka/aws module creates an internal ALB only.
+# This internet-facing NLB provides external access to the Weka UI (443)
+# and REST API (14000) from admin_cidr, using TCP passthrough (no SSL
+# termination — the Weka nodes handle their own self-signed certs).
+
+resource "aws_lb" "weka_external" {
+  name               = "${local.name_prefix}-ext-nlb"
+  internal           = false
+  load_balancer_type = "network"
+  subnets            = [module.networking.weka_subnet_id, module.networking.alb_subnet_id]
+
+  tags = merge(local.common_tags, { Name = "${local.name_prefix}-ext-nlb" })
+}
+
+resource "aws_lb_target_group" "weka_ui_external" {
+  name     = "${local.name_prefix}-weka-ui"
+  port     = 443
+  protocol = "TCP"
+  vpc_id   = module.networking.vpc_id
+
+  health_check {
+    protocol            = "TCP"
+    port                = 443
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_lb_target_group" "weka_api_external" {
+  name     = "${local.name_prefix}-weka-api"
+  port     = 14000
+  protocol = "TCP"
+  vpc_id   = module.networking.vpc_id
+
+  health_check {
+    protocol            = "TCP"
+    port                = 14000
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_lb_listener" "weka_ui_external" {
+  load_balancer_arn = aws_lb.weka_external.arn
+  port              = 443
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.weka_ui_external.arn
+  }
+}
+
+resource "aws_lb_listener" "weka_api_external" {
+  load_balancer_arn = aws_lb.weka_external.arn
+  port              = 14000
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.weka_api_external.arn
+  }
+}
+
+resource "aws_autoscaling_attachment" "weka_ui_external" {
+  autoscaling_group_name = module.weka_cluster.asg_name
+  lb_target_group_arn    = aws_lb_target_group.weka_ui_external.arn
+}
+
+resource "aws_autoscaling_attachment" "weka_api_external" {
+  autoscaling_group_name = module.weka_cluster.asg_name
+  lb_target_group_arn    = aws_lb_target_group.weka_api_external.arn
+}
+
 # ─── DevStack Instance ───────────────────────────────────────────────────────
 
 module "devstack" {

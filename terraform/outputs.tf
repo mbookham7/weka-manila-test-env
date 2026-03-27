@@ -24,13 +24,23 @@ output "manila_endpoint" {
 }
 
 output "weka_ui_url" {
-  description = "Weka cluster management UI URL via ALB."
+  description = "Weka cluster management UI URL (internal ALB — VPC access only)."
   value       = "https://${module.weka_cluster.weka_alb_dns_name}"
 }
 
 output "weka_api_url" {
-  description = "Weka REST API base URL."
+  description = "Weka REST API base URL (internal ALB — VPC access only)."
   value       = "https://${module.weka_cluster.weka_alb_dns_name}:14000/api/v2"
+}
+
+output "weka_external_ui_url" {
+  description = "Weka cluster management UI URL via internet-facing NLB (accessible from admin_cidr)."
+  value       = "https://${aws_lb.weka_external.dns_name}"
+}
+
+output "weka_external_api_url" {
+  description = "Weka REST API URL via internet-facing NLB (accessible from admin_cidr)."
+  value       = "https://${aws_lb.weka_external.dns_name}:14000/api/v2"
 }
 
 output "weka_secret_id" {
@@ -89,8 +99,8 @@ output "next_steps" {
        http://${module.devstack.devstack_public_ip}/dashboard
        Username: admin  Password: (set in terraform.tfvars)
 
-    6. Access Weka UI:
-       https://${module.weka_cluster.weka_alb_dns_name}
+    6. Access Weka UI (external — from your laptop):
+       https://${aws_lb.weka_external.dns_name}
        Password: $(aws secretsmanager get-secret-value --secret-id ${module.weka_cluster.weka_password_secret_id} --region ${var.aws_region} --query SecretString --output text)
 
     7. Run Manila tempest tests:

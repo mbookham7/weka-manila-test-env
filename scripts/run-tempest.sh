@@ -39,11 +39,11 @@ echo ""
 # TEST_PATTERN is passed as an argument ($1) to the remote script so the
 # heredoc can remain single-quoted (preventing unwanted local expansion of
 # shell variables that only exist on the remote host).
+# Run as the 'stack' user — tempest/.stestr is owned by stack and stestr
+# needs write access to store results. Pass TEST_PATTERN via env var.
 ssh ${SSH_OPTS} -i "${SSH_KEY}" ubuntu@"${DEVSTACK_IP}" \
-    "bash -s" "${TEST_PATTERN}" << 'REMOTE_SCRIPT'
+    "TEST_PATTERN='${TEST_PATTERN}' sudo -u stack -E bash -s" << 'REMOTE_SCRIPT'
 set -eo pipefail
-
-TEST_PATTERN="${1:-share}"
 
 # DevStack's openrc sources functions that use unbound variables — disable -u
 set +u
@@ -73,7 +73,7 @@ manila pool-list --detail
 echo ""
 echo "--- Running Manila tempest tests ---"
 # stestr is the test runner used by DevStack / tempest
-stestr run --concurrency 2 "${TEST_PATTERN}" || true
+stestr run --concurrency 2 "${TEST_PATTERN:-share}" || true
 
 echo ""
 echo "--- Test summary ---"

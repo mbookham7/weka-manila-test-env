@@ -561,8 +561,48 @@ fi
 
 echo "=== STEP 11 complete ==="
 
-# ─── STEP 12: Write completion sentinel ────────────────────────────────────────
-echo "=== STEP 12: Writing completion sentinel ==="
+# ─── STEP 12: Configure tempest.conf for Manila DHSS=False testing ───────────
+echo "=== STEP 12: Configuring tempest.conf for Manila ==="
+
+TEMPEST_CONF=/opt/stack/tempest/etc/tempest.conf
+
+if [ -f "$${TEMPEST_CONF}" ]; then
+  echo "Applying Manila DHSS=False tempest settings..."
+
+  # Enable Manila in tempest
+  crudini --set "$${TEMPEST_CONF}" service_available manila True
+
+  # DHSS=False: no share networks, no multitenancy
+  crudini --set "$${TEMPEST_CONF}" share multitenancy_enabled False
+  crudini --set "$${TEMPEST_CONF}" share run_share_server_tests False
+  crudini --set "$${TEMPEST_CONF}" share run_share_network_tests False
+  crudini --set "$${TEMPEST_CONF}" share create_networks_when_multitenancy_enabled False
+
+  # Snapshot support
+  crudini --set "$${TEMPEST_CONF}" share run_snapshot_tests True
+  crudini --set "$${TEMPEST_CONF}" share capability_snapshot_support True
+
+  # Extend/shrink
+  crudini --set "$${TEMPEST_CONF}" share run_extend_tests True
+  crudini --set "$${TEMPEST_CONF}" share run_shrink_tests True
+
+  # Protocols
+  crudini --set "$${TEMPEST_CONF}" share enable_protocols nfs
+  crudini --set "$${TEMPEST_CONF}" share enable_ro_access_level_for_protocols nfs
+
+  # Backend
+  crudini --set "$${TEMPEST_CONF}" share backend_names weka
+
+  echo "tempest.conf Manila settings applied."
+else
+  echo "WARNING: $${TEMPEST_CONF} not found — DevStack may still be running."
+  echo "Run 'make reconfigure-manila' after DevStack completes to apply these settings."
+fi
+
+echo "=== STEP 12 complete ==="
+
+# ─── STEP 13: Write completion sentinel ────────────────────────────────────────
+echo "=== STEP 13: Writing completion sentinel ==="
 
 touch /var/log/devstack-complete
 echo "DevStack + Manila Weka driver bootstrap completed at $(date)" \

@@ -35,10 +35,15 @@ echo "Pattern: ${TEST_PATTERN}"
 echo "Results: ${RESULTS_DIR}"
 echo ""
 
-# Run tempest tests on the remote DevStack instance
+# Run tempest tests on the remote DevStack instance.
+# TEST_PATTERN is passed as an argument ($1) to the remote script so the
+# heredoc can remain single-quoted (preventing unwanted local expansion of
+# shell variables that only exist on the remote host).
 ssh ${SSH_OPTS} -i "${SSH_KEY}" ubuntu@"${DEVSTACK_IP}" \
-    "bash -s" << 'REMOTE_SCRIPT'
+    "bash -s" "${TEST_PATTERN}" << 'REMOTE_SCRIPT'
 set -euo pipefail
+
+TEST_PATTERN="${1:-share}"
 
 source /opt/stack/devstack/openrc admin admin
 
@@ -64,7 +69,7 @@ python -m pytest \
     --config-file "${TEMPEST_DIR}/etc/tempest.conf" \
     --collect-only \
     -q \
-    -k "TEST_PATTERN_PLACEHOLDER" \
+    -k "${TEST_PATTERN}" \
     tempest/api/share/ 2>/dev/null | head -50 || true
 
 echo ""
@@ -72,7 +77,7 @@ echo "--- Running Manila tempest tests ---"
 python -m pytest \
     --config-file "${TEMPEST_DIR}/etc/tempest.conf" \
     -v \
-    -k "TEST_PATTERN_PLACEHOLDER" \
+    -k "${TEST_PATTERN}" \
     --tb=short \
     --junitxml=/tmp/manila-tempest-results.xml \
     tempest/api/share/ \
@@ -80,10 +85,6 @@ python -m pytest \
 
 echo "Tests complete."
 REMOTE_SCRIPT
-
-# Note: sed needed since heredoc can't use variables
-ssh ${SSH_OPTS} -i "${SSH_KEY}" ubuntu@"${DEVSTACK_IP}" \
-    "sed -i 's/TEST_PATTERN_PLACEHOLDER/${TEST_PATTERN}/g' /dev/null" 2>/dev/null || true
 
 # Download results
 echo ""

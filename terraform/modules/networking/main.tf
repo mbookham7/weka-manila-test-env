@@ -129,13 +129,15 @@ resource "aws_security_group" "weka" {
     cidr_blocks = [var.admin_cidr]
   }
 
-  # Weka HTTPS management UI
+  # Weka HTTPS management UI from admin and VPC
+  # VPC CIDR is required for NLB health check probes (they originate from
+  # NLB node IPs within the VPC subnets, not from the client's external IP)
   ingress {
-    description = "Weka HTTPS UI from admin CIDR"
+    description = "Weka HTTPS UI from admin CIDR and VPC (NLB health checks)"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = [var.admin_cidr]
+    cidr_blocks = [var.admin_cidr, var.vpc_cidr]
   }
 
   # Full outbound access (package installs, Weka get.io download, AWS APIs)

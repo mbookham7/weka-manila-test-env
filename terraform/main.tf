@@ -72,32 +72,40 @@ resource "aws_lb" "weka_external" {
 }
 
 resource "aws_lb_target_group" "weka_ui_external" {
-  name     = "${local.name_prefix}-weka-ui"
-  port     = 443
-  protocol = "TCP"
-  vpc_id   = module.networking.vpc_id
-
-  health_check {
-    protocol            = "TCP"
-    port                = 443
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-  }
-
-  tags = local.common_tags
-}
-
-resource "aws_lb_target_group" "weka_api_external" {
-  name     = "${local.name_prefix}-weka-api"
-  port     = 14000
-  protocol = "TCP"
-  vpc_id   = module.networking.vpc_id
+  name_prefix = "wkui-"
+  port        = 14000
+  protocol    = "TCP"
+  vpc_id      = module.networking.vpc_id
 
   health_check {
     protocol            = "TCP"
     port                = 14000
     healthy_threshold   = 2
     unhealthy_threshold = 2
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_lb_target_group" "weka_api_external" {
+  name_prefix = "wkapi-"
+  port        = 14000
+  protocol    = "TCP"
+  vpc_id      = module.networking.vpc_id
+
+  health_check {
+    protocol            = "TCP"
+    port                = 14000
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 
   tags = local.common_tags

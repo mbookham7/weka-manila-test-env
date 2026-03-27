@@ -41,11 +41,14 @@ echo ""
 # shell variables that only exist on the remote host).
 ssh ${SSH_OPTS} -i "${SSH_KEY}" ubuntu@"${DEVSTACK_IP}" \
     "bash -s" "${TEST_PATTERN}" << 'REMOTE_SCRIPT'
-set -euo pipefail
+set -eo pipefail
 
 TEST_PATTERN="${1:-share}"
 
+# DevStack's openrc sources functions that use unbound variables — disable -u
+set +u
 source /opt/stack/devstack/openrc admin admin
+set -u
 
 # Ensure tempest is installed and configured
 TEMPEST_DIR=/opt/stack/tempest

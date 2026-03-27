@@ -60,12 +60,12 @@ plan: init
 
 apply: init
 	@echo "=== Applying Terraform configuration ==="
-	cd $(TF_DIR) && terraform apply -var-file=$(TFVARS) || \
+	cd $(TF_DIR) && terraform apply -var-file=$(TFVARS) -auto-approve || \
 	  (echo "" && \
 	   echo "First apply attempt failed (likely IAM propagation delay for Lambda VPC permissions)." && \
 	   echo "Retrying in 60 seconds..." && \
 	   sleep 60 && \
-	   terraform apply -var-file=$(TFVARS))
+	   terraform apply -var-file=$(TFVARS) -auto-approve)
 	@echo ""
 	@echo "=== Deployment started! ==="
 	@echo "Now run: make wait SSH_KEY=$(SSH_KEY)"
@@ -129,12 +129,12 @@ destroy-prep:
 
 destroy: destroy-prep
 	@echo "=== Destroying infrastructure ==="
-	cd $(TF_DIR) && terraform destroy -var-file=$(TFVARS) || \
+	cd $(TF_DIR) && terraform destroy -var-file=$(TFVARS) -auto-approve || \
 	  (echo "" && \
 	   echo "First destroy attempt failed (likely placement group still in use — instances still terminating)." && \
 	   echo "Retrying in 90 seconds..." && \
 	   sleep 90 && \
-	   terraform destroy -var-file=$(TFVARS))
+	   terraform destroy -var-file=$(TFVARS) -auto-approve)
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 

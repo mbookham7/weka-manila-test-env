@@ -352,8 +352,8 @@ enable_service manila m-api m-shr m-sch m-dat
 # Tempest for integration testing
 enable_service tempest
 
-# Disable Horizon to speed up deployment (access via CLI instead)
-disable_service horizon
+# Horizon dashboard
+enable_service horizon
 
 # ── Manila core plugin ───────────────────────────────────────────────────────
 # Manila must be enabled before third-party plugins

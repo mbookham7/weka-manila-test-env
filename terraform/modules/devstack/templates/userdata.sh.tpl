@@ -586,9 +586,10 @@ if [ -f "$${TEMPEST_CONF}" ]; then
   crudini --set "$${TEMPEST_CONF}" share run_extend_tests True
   crudini --set "$${TEMPEST_CONF}" share run_shrink_tests True
 
-  # Protocols
+  # Protocols — must match exactly what the driver reports in storage_protocol stats
   crudini --set "$${TEMPEST_CONF}" share enable_protocols nfs
   crudini --set "$${TEMPEST_CONF}" share enable_ro_access_level_for_protocols nfs
+  crudini --set "$${TEMPEST_CONF}" share capability_storage_protocol NFS
 
   # Backend
   crudini --set "$${TEMPEST_CONF}" share backend_names weka

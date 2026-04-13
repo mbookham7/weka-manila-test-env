@@ -594,6 +594,10 @@ if [ -f "$${TEMPEST_CONF}" ]; then
   # Backend
   crudini --set "$${TEMPEST_CONF}" share backend_names weka
 
+  # Scenario tests — image uploaded in STEP 13
+  crudini --set "$${TEMPEST_CONF}" share image_with_share_tools manila-service-image-master
+  crudini --set "$${TEMPEST_CONF}" share run_basic_ops_tests True
+
   echo "tempest.conf Manila settings applied."
 else
   echo "WARNING: $${TEMPEST_CONF} not found — DevStack may still be running."
@@ -602,8 +606,51 @@ fi
 
 echo "=== STEP 12 complete ==="
 
-# ─── STEP 13: Write completion sentinel ────────────────────────────────────────
-echo "=== STEP 13: Writing completion sentinel ==="
+# ─── STEP 13: Download and register manila-service-image-master in Glance ──────
+echo "=== STEP 13: Uploading manila-service-image-master to Glance ==="
+
+# This image is required by the Manila tempest scenario tests (TestShareBasicOpsNFS).
+# It is a pre-built VM image that contains NFS client tools so the test can mount
+# a share inside a Nova VM and perform real read/write operations.
+# Source: https://opendev.org/openstack/manila-image-elements
+
+IMAGE_URL="https://tarballs.opendev.org/openstack/manila-image-elements/images/manila-service-image-master.qcow2"
+IMAGE_NAME="manila-service-image-master"
+IMAGE_FILE="/tmp/manila-service-image-master.qcow2"
+
+if [ -f /opt/stack/devstack/openrc ]; then
+  echo "Downloading $${IMAGE_NAME} (~500 MB, this takes a few minutes)..."
+  if wget -q --show-progress -O "$${IMAGE_FILE}" "$${IMAGE_URL}"; then
+    echo "Download complete. Uploading to Glance..."
+    sudo -u stack bash -c "
+      set +u
+      source /opt/stack/devstack/openrc admin admin
+      set -u
+      # Only upload if not already present
+      if ! openstack image show '$${IMAGE_NAME}' &>/dev/null; then
+        openstack image create \
+          --disk-format qcow2 \
+          --container-format bare \
+          --public \
+          --file '$${IMAGE_FILE}' \
+          '$${IMAGE_NAME}'
+        echo 'Image $${IMAGE_NAME} uploaded to Glance successfully.'
+      else
+        echo 'Image $${IMAGE_NAME} already exists in Glance — skipping upload.'
+      fi
+    " || echo "WARNING: Glance image upload failed — scenario tests will be skipped."
+    rm -f "$${IMAGE_FILE}"
+  else
+    echo "WARNING: Failed to download $${IMAGE_NAME} — scenario tests will be skipped."
+  fi
+else
+  echo "WARNING: openrc not found — skipping image upload."
+fi
+
+echo "=== STEP 13 complete ==="
+
+# ─── STEP 14: Write completion sentinel ────────────────────────────────────────
+echo "=== STEP 14: Writing completion sentinel ==="
 
 touch /var/log/devstack-complete
 echo "DevStack + Manila Weka driver bootstrap completed at $(date)" \

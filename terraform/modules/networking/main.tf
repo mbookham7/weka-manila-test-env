@@ -110,6 +110,16 @@ resource "aws_security_group" "weka" {
     cidr_blocks = [var.vpc_cidr]
   }
 
+  # NFS (port 2049) from within the VPC — required for Manila scenario tests
+  # where DevStack VMs mount Weka NFS shares via the NFS protocol gateway.
+  ingress {
+    description = "NFS from VPC (Manila scenario tests via NFS gateway)"
+    from_port   = 2049
+    to_port     = 2049
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr, "10.0.4.0/24"]
+  }
+
   # Weka REST API from admin CIDR — required for NLB TCP passthrough
   # (NLB preserves client source IP, so target SG must allow admin_cidr directly)
   ingress {

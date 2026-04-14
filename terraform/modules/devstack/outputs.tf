@@ -32,3 +32,8 @@ output "iam_role_arn" {
   description = "ARN of the IAM role attached to the DevStack instance."
   value       = aws_iam_role.devstack.arn
 }
+
+output "devstack_eni_id" {
+  description = "Primary ENI ID of the DevStack instance (used for VPC routing of Nova floating IPs)."
+  value       = aws_instance.devstack.primary_network_interface_id
+}

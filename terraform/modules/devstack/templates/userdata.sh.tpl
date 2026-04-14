@@ -9,6 +9,7 @@
 #
 # Template variables (substituted by Terraform at apply time):
 #   weka_backend            = ${weka_backend}
+#   weka_nfs_server         = ${weka_nfs_server}
 #   weka_password_secret_id = ${weka_password_secret_id}
 #   lambda_status_name      = ${lambda_status_name}
 #   aws_region              = ${aws_region}
@@ -31,6 +32,7 @@ echo "=== Instance: $(hostname) ==="
 
 # ─── Terraform-substituted configuration ──────────────────────────────────────
 WEKA_BACKEND="${weka_backend}"
+WEKA_NFS_SERVER="${weka_nfs_server}"
 WEKA_SECRET_ID="${weka_password_secret_id}"
 LAMBDA_STATUS_NAME="${lambda_status_name}"
 AWS_REGION="${aws_region}"
@@ -319,6 +321,11 @@ SERVICE_PASSWORD=$${ADMIN_PASSWORD}
 
 # ── Network ──────────────────────────────────────────────────────────────────
 HOST_IP=$${HOST_IP}
+# Use 10.0.4.0/24 for Nova floating IPs so they stay within the VPC CIDR
+# (10.0.0.0/16). This makes them natively routable via the VPC route table
+# and avoids the MASQUERADE-stripping problem with the 172.24.4.0/24 default.
+FLOATING_RANGE=10.0.4.0/24
+PUBLIC_NETWORK_GATEWAY=10.0.4.1
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 DEST=/opt/stack
@@ -329,6 +336,11 @@ DATA_DIR=/opt/stack/data
 Q_AGENT=openvswitch
 Q_ML2_PLUGIN_MECHANISM_DRIVERS=openvswitch
 Q_ML2_PLUGIN_TYPE_DRIVERS=flat,vlan,vxlan,geneve
+# AWS EC2 blocks GRE packets — force VXLAN (UDP 4789) which EC2 does support.
+# Without this the OVS agent defaults to GRE, port binding fails, and Nova
+# cannot boot the manila-service-image VM needed for scenario tests.
+Q_TUNNEL_TYPES=vxlan
+Q_ML2_TENANT_NETWORK_TYPE=vxlan
 
 # ── Services ─────────────────────────────────────────────────────────────────
 # Minimal service set for Manila testing (no Cinder, no Swift)
@@ -382,6 +394,7 @@ MANILA_OPTGROUP_weka_revert_to_snapshot_support=True
 
 # Weka connection settings (password fetched from Secrets Manager at boot)
 MANILA_OPTGROUP_weka_weka_api_server=$${WEKA_BACKEND}
+MANILA_OPTGROUP_weka_weka_nfs_server=$${WEKA_NFS_SERVER}
 MANILA_OPTGROUP_weka_weka_api_port=14000
 MANILA_OPTGROUP_weka_weka_username=admin
 MANILA_OPTGROUP_weka_weka_password=$${WEKA_PASSWORD}
@@ -414,6 +427,7 @@ snapshot_support = True
 create_share_from_snapshot_support = True
 revert_to_snapshot_support = True
 weka_api_server = $${WEKA_BACKEND}
+weka_nfs_server = $${WEKA_NFS_SERVER}
 weka_api_port = 14000
 weka_username = admin
 weka_password = $${WEKA_PASSWORD}
@@ -517,6 +531,7 @@ if [ -f /etc/manila/manila.conf ]; then
   crudini --set /etc/manila/manila.conf weka create_share_from_snapshot_support True
   crudini --set /etc/manila/manila.conf weka revert_to_snapshot_support True
   crudini --set /etc/manila/manila.conf weka weka_api_server "$${WEKA_BACKEND}"
+  crudini --set /etc/manila/manila.conf weka weka_nfs_server "$${WEKA_NFS_SERVER}"
   crudini --set /etc/manila/manila.conf weka weka_api_port 14000
   crudini --set /etc/manila/manila.conf weka weka_username admin
   crudini --set /etc/manila/manila.conf weka weka_password "$${WEKA_PASSWORD}"
@@ -649,8 +664,29 @@ fi
 
 echo "=== STEP 13 complete ==="
 
-# ─── STEP 14: Write completion sentinel ────────────────────────────────────────
-echo "=== STEP 14: Writing completion sentinel ==="
+# ─── STEP 14: NFS routing — allow Nova VM floating IPs to reach Weka NFS ───────
+# Nova VMs get floating IPs in 10.0.4.0/24 (within the VPC CIDR 10.0.0.0/16).
+# DevStack adds a MASQUERADE rule that SNATs traffic leaving ens5 to the host IP.
+# Insert a RETURN rule before MASQUERADE so that traffic destined for anywhere
+# in the VPC (10.0.0.0/16) keeps its floating-IP source address, allowing Weka
+# NFS gateway NFS permissions to match correctly.
+# The EC2 source/destination check must also be disabled (done via Terraform).
+echo "=== STEP 14: Configuring NFS routing for Nova VM floating IPs ==="
+iptables -t nat -I POSTROUTING 1 \
+  -s 10.0.4.0/24 -d 10.0.0.0/16 -j RETURN
+# Persist across reboots
+mkdir -p /etc/iptables
+iptables-save > /etc/iptables/rules.v4
+# Restore on reboot
+cat > /etc/network/if-pre-up.d/iptables-restore << 'IPRULES'
+#!/bin/sh
+iptables-restore < /etc/iptables/rules.v4
+IPRULES
+chmod +x /etc/network/if-pre-up.d/iptables-restore
+echo "=== STEP 14 complete ==="
+
+# ─── STEP 15: Write completion sentinel ────────────────────────────────────────
+echo "=== STEP 15: Writing completion sentinel ==="
 
 touch /var/log/devstack-complete
 echo "DevStack + Manila Weka driver bootstrap completed at $(date)" \

@@ -49,6 +49,7 @@ resource "aws_s3_object" "bootstrap_script" {
   key    = "bootstrap.sh"
   content = templatefile("${path.module}/templates/userdata.sh.tpl", {
     weka_backend            = var.weka_backend
+    weka_nfs_server         = var.weka_nfs_server
     weka_password_secret_id = var.weka_password_secret_id
     lambda_status_name      = var.lambda_status_name
     aws_region              = var.aws_region
@@ -158,6 +159,7 @@ resource "aws_instance" "devstack" {
   iam_instance_profile   = aws_iam_instance_profile.devstack.name
 
   associate_public_ip_address = true
+  source_dest_check           = false # Allow Nova VM floating IPs (172.24.4.0/24) to reach Weka NFS gateway
 
   root_block_device {
     volume_type           = "gp3"

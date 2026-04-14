@@ -32,3 +32,8 @@ output "alb_sg_id" {
   description = "ID of the Weka ALB security group."
   value       = aws_security_group.alb.id
 }
+
+output "main_route_table_id" {
+  description = "ID of the main VPC route table (shared by all subnets)."
+  value       = aws_route_table.main.id
+}

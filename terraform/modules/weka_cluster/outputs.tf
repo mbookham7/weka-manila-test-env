@@ -32,3 +32,8 @@ output "pre_terraform_destroy_command" {
   description = "Command that must be run before terraform destroy (only relevant if S3/SMB gateways exist)."
   value       = module.weka.pre_terraform_destroy_command
 }
+
+output "nfs_gateway_name" {
+  description = "Name tag of the NFS protocol gateway instance(s)."
+  value       = module.weka.nfs_protocol_gateways_name
+}

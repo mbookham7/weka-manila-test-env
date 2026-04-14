@@ -40,6 +40,11 @@ variable "weka_backend" {
   type        = string
 }
 
+variable "weka_nfs_server" {
+  description = "DNS name of the NFS NLB (used as weka_nfs_server in Manila config for NFS export locations)."
+  type        = string
+}
+
 variable "weka_password_secret_id" {
   description = "AWS Secrets Manager secret ID/ARN containing the Weka admin password."
   type        = string

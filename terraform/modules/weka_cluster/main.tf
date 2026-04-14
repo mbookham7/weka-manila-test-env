@@ -60,9 +60,14 @@ module "weka" {
   # ── Disabled features (cost reduction for test environment) ─────────────────
   clients_number               = 0 # DevStack joins as client via user_data
   data_services_number         = 0
-  nfs_protocol_gateways_number = 0
   s3_protocol_gateways_number  = 0
   smb_protocol_gateways_number = 0
+
+  # ── NFS protocol gateway ─────────────────────────────────────────────────────
+  # Required for Manila NFS scenario tests (TestShareBasicOpsNFS).
+  # The gateway runs in the same Weka subnet and serves NFS on port 2049.
+  nfs_protocol_gateways_number   = 1
+  nfs_protocol_gateway_subnet_id = var.weka_subnet_id
 
   # ── Tags ────────────────────────────────────────────────────────────────────
   tags_map = var.tags_map

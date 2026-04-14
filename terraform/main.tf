@@ -143,12 +143,92 @@ resource "aws_autoscaling_attachment" "weka_api_external" {
   lb_target_group_arn    = aws_lb_target_group.weka_api_external.arn
 }
 
+# ─── NFS Gateway NLB ─────────────────────────────────────────────────────────
+# An internal NLB that forwards NFS (TCP 2049) traffic to the Weka NFS protocol
+# gateway instance. This gives the Manila driver a stable hostname to use as
+# the NFS server in share export locations (weka_nfs_server in manila.conf).
+# The Weka ALB handles REST API traffic (port 14000) — NFS cannot be added to
+# an ALB because ALBs only support HTTP/HTTPS listeners.
+
+data "aws_instances" "nfs_gateways" {
+  depends_on = [module.weka_cluster]
+
+  filter {
+    name   = "tag:Name"
+    values = [module.weka_cluster.nfs_gateway_name]
+  }
+  filter {
+    name   = "instance-state-name"
+    values = ["running"]
+  }
+}
+
+resource "aws_lb" "weka_nfs_internal" {
+  name               = "${local.name_prefix}-nfs-nlb"
+  internal           = true
+  load_balancer_type = "network"
+  subnets            = [module.networking.weka_subnet_id]
+
+  tags = merge(local.common_tags, { Name = "${local.name_prefix}-nfs-nlb" })
+}
+
+resource "aws_lb_target_group" "weka_nfs" {
+  name_prefix = "wknfs-"
+  port        = 2049
+  protocol    = "TCP"
+  vpc_id      = module.networking.vpc_id
+  target_type = "instance"
+
+  health_check {
+    protocol            = "TCP"
+    port                = 2049
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_lb_target_group_attachment" "weka_nfs" {
+  count            = 1
+  target_group_arn = aws_lb_target_group.weka_nfs.arn
+  target_id        = data.aws_instances.nfs_gateways.ids[count.index]
+  port             = 2049
+}
+
+resource "aws_lb_listener" "weka_nfs_internal" {
+  load_balancer_arn = aws_lb.weka_nfs_internal.arn
+  port              = 2049
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.weka_nfs.arn
+  }
+}
+
 # ─── DevStack Instance ───────────────────────────────────────────────────────
+
+# ─── VPC route: Nova VM floating IPs → DevStack instance ─────────────────────
+# Nova VMs get floating IPs in 10.0.4.0/24 (within VPC CIDR — avoids MASQUERADE).
+# Return traffic from the Weka NFS gateway must be routed back through the
+# DevStack instance (which has source/destination check disabled).
+resource "aws_route" "devstack_floating_ips" {
+  route_table_id         = module.networking.main_route_table_id
+  destination_cidr_block = "10.0.4.0/24"
+  network_interface_id   = module.devstack.devstack_eni_id
+
+  depends_on = [module.devstack]
+}
 
 module "devstack" {
   source = "./modules/devstack"
 
-  depends_on = [module.weka_cluster]
+  depends_on = [module.weka_cluster, aws_lb_listener.weka_nfs_internal]
 
   name_prefix = local.name_prefix
   aws_region  = var.aws_region
@@ -160,6 +240,7 @@ module "devstack" {
   key_pair_name = aws_key_pair.main.key_name
 
   weka_backend            = module.weka_cluster.weka_alb_dns_name
+  weka_nfs_server         = aws_lb.weka_nfs_internal.dns_name
   weka_password_secret_id = module.weka_cluster.weka_password_secret_id
   lambda_status_name      = module.weka_cluster.lambda_status_name
 

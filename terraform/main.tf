@@ -240,7 +240,12 @@ module "devstack" {
   key_pair_name = aws_key_pair.main.key_name
 
   weka_backend            = module.weka_cluster.weka_alb_dns_name
-  weka_nfs_server         = aws_lb.weka_nfs_internal.dns_name
+  # Use the NFS gateway's direct private IP rather than the NLB hostname.
+  # The NLB is TCP-only and does not respond to ICMP; Manila tempest scenario
+  # tests call ping_to_export_location() which pings the NFS server before
+  # mounting. The gateway instance itself responds to ICMP (with the ICMP
+  # ingress rule now added to the Weka SG for vpc_cidr).
+  weka_nfs_server         = data.aws_instances.nfs_gateways.private_ips[0]
   weka_password_secret_id = module.weka_cluster.weka_password_secret_id
   lambda_status_name      = module.weka_cluster.lambda_status_name
 

@@ -41,7 +41,7 @@ variable "weka_backend" {
 }
 
 variable "weka_nfs_server" {
-  description = "DNS name of the NFS NLB (used as weka_nfs_server in Manila config for NFS export locations)."
+  description = "NFS server address (private IP of the NFS gateway instance) used as weka_nfs_server in Manila config. Direct IP is required because the NLB is TCP-only and does not respond to ICMP pings."
   type        = string
 }
 

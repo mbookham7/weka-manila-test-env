@@ -133,6 +133,18 @@ resource "aws_security_group" "weka" {
     cidr_blocks = [var.vpc_cidr, "10.0.4.0/24"]
   }
 
+  # ICMP from VPC — required for Manila tempest scenario tests.
+  # ping_to_export_location() pings the NFS server (gateway direct IP) before
+  # attempting to mount. Nova VM packets arrive with src = floating IP
+  # (10.0.4.0/24 ⊂ vpc_cidr) after qrouter SNAT, so vpc_cidr covers all VMs.
+  ingress {
+    description = "ICMP from VPC (Manila scenario test ping_to_export_location)"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = [var.vpc_cidr]
+  }
+
   # Weka REST API from admin CIDR — required for NLB TCP passthrough
   # (NLB preserves client source IP, so target SG must allow admin_cidr directly)
   ingress {

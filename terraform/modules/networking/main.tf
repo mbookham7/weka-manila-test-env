@@ -48,6 +48,19 @@ resource "aws_subnet" "alb" {
   tags = merge(var.tags, { Name = "${var.name_prefix}-alb-subnet" })
 }
 
+# Nova floating IP subnet — matches DevStack FLOATING_RANGE (10.0.4.0/24).
+# No instances are placed here; the subnet must exist so that AWS allows
+# the VPC route "10.0.4.0/24 → DevStack ENI" to be created (AWS requires
+# the route destination to match a subnet CIDR when routing to an ENI).
+resource "aws_subnet" "floating" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.4.0/24"
+  availability_zone       = var.availability_zone
+  map_public_ip_on_launch = false
+
+  tags = merge(var.tags, { Name = "${var.name_prefix}-floating-subnet" })
+}
+
 # ─── Route Table ──────────────────────────────────────────────────────────────
 
 resource "aws_route_table" "main" {

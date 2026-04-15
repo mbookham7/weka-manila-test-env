@@ -342,6 +342,11 @@ Q_ML2_PLUGIN_TYPE_DRIVERS=flat,vlan,vxlan,geneve
 Q_TUNNEL_TYPES=vxlan
 Q_ML2_TENANT_NETWORK_TYPE=vxlan
 
+# DNS for Nova VMs — required so VMs can resolve hostnames inside the guest.
+# Without this dnsmasq has no upstream and guest DNS queries fail, causing
+# cloud-init and package installs inside Nova VMs to time out.
+DNSMASQ_DNS_SERVERS=8.8.8.8
+
 # ── Services ─────────────────────────────────────────────────────────────────
 # Minimal service set for Manila testing (no Cinder, no Swift)
 disable_all_services

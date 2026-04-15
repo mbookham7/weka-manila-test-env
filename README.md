@@ -28,7 +28,7 @@ a real Weka storage cluster.
 │  │   [Application Load Balancer — port 443 (UI) + 14000 (API)] │  │
 │  └────────────────────────┬────────────────────────────────────┘  │
 │                            │ HTTPS :14000 REST API                 │
-│  ┌── DevStack Subnet 10.0.2.0/24 (eu-west-1a) ────────────────┐  │
+│  ┌── DevStack Subnet 10.0.2.0/24 (eu-west-1b) ────────────────┐  │
 │  │                                                               │  │
 │  │   ┌─────────────────────────────────────────────────────┐    │  │
 │  │   │  m5.4xlarge  DevStack Host  (Ubuntu 24.04)           │    │  │

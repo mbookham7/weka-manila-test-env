@@ -14,7 +14,7 @@ a real Weka storage cluster.
 ┌─────────────────────────────────────────────────────────────────┐
 │  AWS VPC  10.0.0.0/16                      (eu-west-1)          │
 │                                                                   │
-│  ┌── Weka Subnet 10.0.1.0/24 (eu-west-1a) ──────────────────┐  │
+│  ┌── Weka Subnet 10.0.1.0/24 (eu-west-1b) ──────────────────┐  │
 │  │                                                             │  │
 │  │   ┌────────────┐  ┌────────────┐  ┌────────────┐          │  │
 │  │   │i3en.2xlarge│  │i3en.2xlarge│  │i3en.2xlarge│   × 6    │  │
@@ -24,7 +24,7 @@ a real Weka storage cluster.
 │  │                         │ WekaFS cluster fabric              │  │
 │  └─────────────────────────┼───────────────────────────────────┘  │
 │                            │                                       │
-│  ┌── ALB Subnet 10.0.3.0/24 (eu-west-1b) ─────────────────────┐  │
+│  ┌── ALB Subnet 10.0.3.0/24 (eu-west-1c) ─────────────────────┐  │
 │  │   [Application Load Balancer — port 443 (UI) + 14000 (API)] │  │
 │  └────────────────────────┬────────────────────────────────────┘  │
 │                            │ HTTPS :14000 REST API                 │
@@ -97,8 +97,8 @@ admin_cidr        = "203.0.113.5/32"       # your public IP: curl ifconfig.me
 
 # OPTIONAL — adjust for your region
 aws_region            = "eu-west-1"
-availability_zone     = "eu-west-1a"
-alb_availability_zone = "eu-west-1b"
+availability_zone     = "eu-west-1b"
+alb_availability_zone = "eu-west-1c"
 ```
 
 ### 2. Deploy
@@ -224,8 +224,16 @@ manila share-export-location-list test-nfs
 manila share-export-location-list test-wekafs
 ```
 
-Both `NFS` and `WEKAFS` protocols are fully supported. The driver automatically
-patches Manila's `SUPPORTED_SHARE_PROTOCOLS` to add `WEKAFS` during DevStack setup.
+Both `NFS` and `WEKAFS` protocols are supported by the driver. The driver
+automatically patches Manila's `SUPPORTED_SHARE_PROTOCOLS` to add `WEKAFS`
+during DevStack setup.
+
+> **Note:** `WEKAFS` protocol shares require the WekaFS kernel module to be
+> loaded on the Manila host. The kernel module does not compile on Linux
+> kernel 6.17+ (Ubuntu 24.04 with latest AWS AMI kernels). The bootstrap
+> script pins the kernel below this threshold. See
+> [Known Issues](https://github.com/mbookham7/manila-weka-driver/blob/main/docs/known-issues.md)
+> for details. `NFS` protocol shares are unaffected.
 
 ### Mount the share (WekaFS POSIX)
 
@@ -299,11 +307,13 @@ The `enable_plugin manila-weka-driver ...` directive in `local.conf` requires
 `devstack/plugin.sh` and `devstack/settings` to exist in the
 `mbookham7/manila-weka-driver` GitHub repository.
 
-These files are provided in `driver-devstack/` in this repo.
-**They must be pushed to the driver repo before deploying:**
+These files are provided in `driver-devstack/` in this repo and are already
+present in the `mbookham7/manila-weka-driver` GitHub repository under
+`devstack/plugin.sh` and `devstack/settings`.
+
+If you fork the driver repo, copy them across before deploying:
 
 ```bash
-# Option 1: Push to the driver repo (requires write access)
 cd /path/to/manila-weka-driver
 mkdir -p devstack
 cp /path/to/weka-manila-test-env/driver-devstack/plugin.sh devstack/
@@ -311,13 +321,10 @@ cp /path/to/weka-manila-test-env/driver-devstack/settings devstack/
 git add devstack/
 git commit -m "Add DevStack plugin for CI integration"
 git push
-
-# Option 2: Fork the driver repo and use your fork's URL
-# Update driver_branch and the enable_plugin URL in local.conf.tpl
 ```
 
-Until the plugin files are merged, the DevStack bootstrap will fail at
-the `enable_plugin manila-weka-driver` step.
+Until the plugin files exist in the driver repo, the DevStack bootstrap will
+fail at the `enable_plugin manila-weka-driver` step.
 
 ## Troubleshooting
 
@@ -398,7 +405,11 @@ weka local status
 
 **Common causes:**
 - Weka agent install failed (cluster not ready when bootstrap ran)
-- Incompatible kernel version — Ubuntu 24.04 with kernel mismatch
+- Kernel 6.17+ — the WekaFS kernel module does not compile against Linux
+  kernel 6.17+ due to a breaking `inode_operations.mkdir` return type change.
+  The bootstrap script pins the kernel to prevent this, but if the AMI
+  already ships with kernel ≥ 6.17 the pin has no effect.
+  See [Known Issues](https://github.com/mbookham7/manila-weka-driver/blob/main/docs/known-issues.md#1-wekafs-kernel-module-incompatible-with-linux-kernel-617).
 - Weka agent version mismatch with cluster version
 
 To reinstall the agent:

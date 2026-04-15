@@ -45,6 +45,12 @@ echo "=== STEP 1: System preparation ==="
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
+
+# Pin the kernel at the version shipped with the AMI before any upgrade.
+# Weka 5.x kernel module fails to compile against linux 6.17+ due to a
+# breaking inode_operations.mkdir return-type change in that kernel.
+apt-mark hold linux-aws linux-image-aws linux-headers-aws 2>/dev/null || true
+
 apt-get upgrade -y -q
 apt-get install -y -q \
   git \

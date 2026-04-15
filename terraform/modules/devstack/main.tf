@@ -1,12 +1,14 @@
-# ─── AMI lookup — Ubuntu 24.04 LTS (Noble) ────────────────────────────────────
+# ─── AMI lookup — Ubuntu 22.04 LTS (Jammy) ────────────────────────────────────
+# Ubuntu 22.04 ships kernel 5.15, which is compatible with the WekaFS kernel
+# module. Do not upgrade to 24.04 until Weka supports kernel 6.17+.
 
-data "aws_ami" "ubuntu_noble" {
+data "aws_ami" "ubuntu_jammy" {
   most_recent = true
   owners      = ["099720109477"] # Canonical
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
   }
 
   filter {
@@ -151,7 +153,7 @@ resource "aws_iam_instance_profile" "devstack" {
 # ─── EC2 Instance ─────────────────────────────────────────────────────────────
 
 resource "aws_instance" "devstack" {
-  ami                    = data.aws_ami.ubuntu_noble.id
+  ami                    = data.aws_ami.ubuntu_jammy.id
   instance_type          = var.instance_type
   subnet_id              = var.devstack_subnet_id
   vpc_security_group_ids = [var.devstack_sg_id]
@@ -177,7 +179,7 @@ resource "aws_instance" "devstack" {
     set -ex
     exec > >(tee -a /var/log/devstack-bootstrap.log) 2>&1
     echo "=== Launcher: $(date) ==="
-    # Install AWS CLI v2 — awscli apt package was removed from Ubuntu 24.04
+    # Install AWS CLI v2 (use upstream binary for consistent v2 behaviour)
     if ! command -v aws &>/dev/null; then
       apt-get update -qq
       apt-get install -y -qq unzip curl

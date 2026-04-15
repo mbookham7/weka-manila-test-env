@@ -40,17 +40,86 @@ DEVSTACK_BRANCH="${devstack_branch}"
 DRIVER_BRANCH="${driver_branch}"
 ADMIN_PASSWORD="${admin_password}"
 
+# ─── KERNEL PHASE: Ensure kernel 5.15 for WekaFS compatibility ────────────────
+# Ubuntu 22.04.4+ ships with the HWE kernel (6.8) which breaks the WekaFS
+# kernel module. Phase 1 installs the GA (5.15) kernel and reboots.
+# Phase 2 runs this script again via a systemd service after the reboot.
+
+PHASE_SENTINEL=/root/.bootstrap-kernel-ready
+
+if [ ! -f "$PHASE_SENTINEL" ]; then
+  echo "=== KERNEL PHASE 1: Installing 5.15 GA kernel for WekaFS compatibility ==="
+
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -q
+
+  # Install the Ubuntu 22.04 LTS GA kernel for AWS (kernel 5.15)
+  if apt-get install -y linux-aws-lts-22.04 linux-headers-aws-lts-22.04 2>/dev/null; then
+    echo "Installed linux-aws-lts-22.04 (5.15 kernel)"
+  else
+    echo "linux-aws-lts-22.04 not found — searching for 5.15 AWS kernel packages..."
+    KERN_PKG=$(apt-cache search 'linux-image-5\.15.*-aws$' 2>/dev/null | awk '{print $1}' | sort -V | tail -1)
+    HDR_PKG=$(apt-cache search  'linux-headers-5\.15.*-aws$' 2>/dev/null | awk '{print $1}' | sort -V | tail -1)
+    if [ -n "$${KERN_PKG}" ]; then
+      apt-get install -y "$${KERN_PKG}" "$${HDR_PKG}" || true
+    else
+      echo "WARNING: No 5.15 AWS kernel found — WekaFS will not work on this host."
+    fi
+  fi
+
+  # Hold HWE packages so apt upgrade cannot pull 6.8 back in
+  apt-mark hold linux-aws linux-image-aws linux-headers-aws 2>/dev/null || true
+
+  # Identify the installed 5.15 kernel version string for GRUB
+  KERN_5_15=$(dpkg -l 'linux-image-5.15*-aws' 2>/dev/null \
+    | awk '/^ii/{print $2}' | sed 's/linux-image-//' | sort -V | tail -1)
+
+  if [ -n "$${KERN_5_15}" ]; then
+    echo "Setting GRUB default to: $${KERN_5_15}"
+    sed -i "s|^GRUB_DEFAULT=.*|GRUB_DEFAULT=\"Advanced options for Ubuntu>Ubuntu, with Linux $${KERN_5_15}\"|" \
+      /etc/default/grub
+    update-grub
+  else
+    echo "WARNING: Could not identify 5.15 kernel version — GRUB not updated."
+  fi
+
+  # Register a systemd service to resume this script after the reboot
+  cat > /etc/systemd/system/devstack-bootstrap-continue.service << 'SVCEOF'
+[Unit]
+Description=DevStack Bootstrap Phase 2 (post-kernel-reboot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/root/bootstrap.sh
+StandardOutput=append:/var/log/devstack-bootstrap.log
+StandardError=append:/var/log/devstack-bootstrap.log
+TimeoutStartSec=7200
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+  systemctl enable devstack-bootstrap-continue.service
+
+  # Write sentinel before reboot so phase 2 skips this block
+  touch "$PHASE_SENTINEL"
+
+  echo "=== KERNEL PHASE 1 complete — rebooting to kernel 5.15 in 3 seconds ==="
+  sleep 3
+  reboot
+  exit 0
+fi
+
+echo "=== KERNEL PHASE 2: Resumed after reboot — running kernel: $(uname -r) ==="
+
 # ─── STEP 1: System preparation ───────────────────────────────────────────────
 echo "=== STEP 1: System preparation ==="
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
-
-# Pin the kernel at the version shipped with the AMI before any upgrade.
-# Weka 5.x kernel module fails to compile against linux 6.17+ due to a
-# breaking inode_operations.mkdir return-type change in that kernel.
-apt-mark hold linux-aws linux-image-aws linux-headers-aws 2>/dev/null || true
-
 apt-get upgrade -y -q
 apt-get install -y -q \
   git \
@@ -76,7 +145,7 @@ apt-get install -y -q \
   vim \
   tmux
 
-# Install AWS CLI v2 — awscli apt package was removed from Ubuntu 24.04
+# Install AWS CLI v2 (use upstream binary for consistent v2 behaviour)
 if ! command -v aws &>/dev/null; then
   curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \
     -o /tmp/awscliv2.zip
@@ -264,11 +333,13 @@ else
 fi
 
 # Ensure WekaFS kernel module is loaded
-if modprobe wekafs 2>/dev/null; then
+# The Weka client installs the module as 'wekafsio' (with 'wekafsgw' as a dependency)
+sudo depmod -a
+if modprobe wekafsio 2>/dev/null; then
   echo "wekafs kernel module loaded successfully."
-  echo "wekafs" > /etc/modules-load.d/wekafs.conf
+  echo "wekafsio" > /etc/modules-load.d/wekafs.conf
 else
-  echo "WARNING: Could not load wekafs module. Manila WekaFS POSIX access will not work."
+  echo "WARNING: Could not load wekafsio module. Manila WekaFS POSIX access will not work."
   echo "NFS protocol mode may still function if configured."
 fi
 
@@ -612,15 +683,20 @@ if [ -f "$${TEMPEST_CONF}" ]; then
   crudini --set "$${TEMPEST_CONF}" share run_extend_tests True
   crudini --set "$${TEMPEST_CONF}" share run_shrink_tests True
 
-  # Protocols — must match exactly what the driver reports in storage_protocol stats
-  crudini --set "$${TEMPEST_CONF}" share enable_protocols nfs
+  # Protocols — driver reports 'WEKAFS NFS'; enable both for API lifecycle tests.
+  # NFS is also listed in enable_ro_access_level_for_protocols (WEKAFS access
+  # rules are recorded but not NFS-enforced, so RO level is not applicable).
+  crudini --set "$${TEMPEST_CONF}" share enable_protocols "nfs,wekafs"
   crudini --set "$${TEMPEST_CONF}" share enable_ro_access_level_for_protocols nfs
-  crudini --set "$${TEMPEST_CONF}" share capability_storage_protocol NFS
+  crudini --set "$${TEMPEST_CONF}" share capability_storage_protocol "WEKAFS NFS"
 
   # Backend
   crudini --set "$${TEMPEST_CONF}" share backend_names weka
 
-  # Scenario tests — image uploaded in STEP 13
+  # Scenario tests (mount + read/write inside a Nova VM):
+  # - NFS: supported — manila-service-image has NFS client tools
+  # - WEKAFS: NOT supported — the Nova VM does not have the Weka client;
+  #   WEKAFS coverage is via API lifecycle tests above
   crudini --set "$${TEMPEST_CONF}" share image_with_share_tools manila-service-image-master
   crudini --set "$${TEMPEST_CONF}" share run_basic_ops_tests True
 

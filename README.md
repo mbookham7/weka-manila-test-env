@@ -31,7 +31,7 @@ a real Weka storage cluster.
 │  ┌── DevStack Subnet 10.0.2.0/24 (eu-west-1b) ────────────────┐  │
 │  │                                                               │  │
 │  │   ┌─────────────────────────────────────────────────────┐    │  │
-│  │   │  m5.4xlarge  DevStack Host  (Ubuntu 24.04)           │    │  │
+│  │   │  m5.4xlarge  DevStack Host  (Ubuntu 22.04)           │    │  │
 │  │   │                                                       │    │  │
 │  │   │  ┌─────────────────────────────────────────────┐     │    │  │
 │  │   │  │  OpenStack Services                          │     │    │  │
@@ -229,11 +229,11 @@ automatically patches Manila's `SUPPORTED_SHARE_PROTOCOLS` to add `WEKAFS`
 during DevStack setup.
 
 > **Note:** `WEKAFS` protocol shares require the WekaFS kernel module to be
-> loaded on the Manila host. The kernel module does not compile on Linux
-> kernel 6.17+ (Ubuntu 24.04 with latest AWS AMI kernels). The bootstrap
-> script pins the kernel below this threshold. See
+> loaded on the Manila host. This environment uses Ubuntu 22.04 (kernel 5.15)
+> which is fully compatible with the WekaFS module. Do not upgrade to Ubuntu
+> 24.04 until Weka supports kernel 6.17+. See
 > [Known Issues](https://github.com/mbookham7/manila-weka-driver/blob/main/docs/known-issues.md)
-> for details. `NFS` protocol shares are unaffected.
+> for details.
 
 ### Mount the share (WekaFS POSIX)
 

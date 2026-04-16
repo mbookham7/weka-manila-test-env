@@ -24,7 +24,7 @@ cluster_name = "manila-dev"
 
 weka_cluster_size  = 6
 weka_instance_type = "i3en.2xlarge"
-weka_version       = ""  # Leave empty to use latest, or pin e.g. "4.4.10.196"
+weka_version       = ""  # Leave empty to use latest, or pin e.g. "5.1.0.516" (v5.x required)
 
 # ─── DevStack ────────────────────────────────────────────────────────────────
 

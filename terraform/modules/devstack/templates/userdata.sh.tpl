@@ -327,6 +327,17 @@ if [ "$${WEKA_API_READY}" = "true" ]; then
     echo "WARNING: Weka agent install returned non-zero. Checking if agent is present..."
     which weka || echo "weka binary not found after install attempt"
   }
+
+  # Download and compile the Weka version — this builds the wekafsio kernel module
+  # against the running kernel. Must be done before modprobe wekafsio.
+  echo "Downloading Weka version ${weka_version}..."
+  if weka version get "${weka_version}" 2>&1; then
+    echo "Preparing Weka version ${weka_version} (compiling kernel module)..."
+    weka version prepare "${weka_version}" 2>&1 || \
+      echo "WARNING: weka version prepare returned non-zero — module may not load."
+  else
+    echo "WARNING: weka version get failed — wekafsio module will not be available."
+  fi
 else
   echo "WARNING: Weka API did not become ready for agent install. Continuing..."
   echo "The wekafs module may not be available for Manila. Check /var/log/devstack-bootstrap.log"
@@ -334,7 +345,7 @@ fi
 
 # Ensure WekaFS kernel module is loaded
 # The Weka client installs the module as 'wekafsio' (with 'wekafsgw' as a dependency)
-sudo depmod -a
+depmod -a
 if modprobe wekafsio 2>/dev/null; then
   echo "wekafs kernel module loaded successfully."
   echo "wekafsio" > /etc/modules-load.d/wekafs.conf

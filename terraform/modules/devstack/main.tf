@@ -58,6 +58,7 @@ resource "aws_s3_object" "bootstrap_script" {
     devstack_branch         = var.devstack_branch
     driver_branch           = var.driver_branch
     admin_password          = var.admin_password
+    weka_version            = var.weka_version
   })
   content_type = "text/x-shellscript"
 }

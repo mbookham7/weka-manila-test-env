@@ -78,3 +78,8 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "weka_version" {
+  description = "Weka software version to install on the DevStack host (e.g. 5.1.0.516)."
+  type        = string
+}

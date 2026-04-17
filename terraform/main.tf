@@ -252,6 +252,7 @@ module "devstack" {
   devstack_branch = var.devstack_branch
   driver_branch   = var.driver_branch
   admin_password  = var.admin_password
+  weka_version    = var.weka_version
 
   tags = local.common_tags
 }

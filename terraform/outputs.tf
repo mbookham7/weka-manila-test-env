@@ -84,10 +84,10 @@ output "next_steps" {
     Deployment started. Follow these steps:
 
     1. Wait ~20 min for Weka cluster to clusterize:
-       make wait-weka
+       make wait-weka SSH_KEY=<key.pem>
 
     2. Wait ~40 min for DevStack to finish bootstrapping:
-       make wait-devstack
+       make wait-devstack SSH_KEY=<key.pem>
 
     3. Stream the DevStack log:
        ${join("", ["ssh ubuntu@", module.devstack.devstack_public_ip, " -i <key.pem> 'tail -f /var/log/stack.sh.log'"])}

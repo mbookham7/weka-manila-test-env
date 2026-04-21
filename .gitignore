@@ -14,5 +14,11 @@ terraform.tfvars
 .terraform/
 .terraform.lock.hcl
 
+# Claude Code session files
+.claude/
+
+# Tempest / test run results
+results/
+
 # OS
 .DS_Store

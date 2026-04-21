@@ -57,6 +57,12 @@ module "weka" {
   secretmanager_use_vpc_endpoint    = false
   secretmanager_create_vpc_endpoint = false
 
+  # ── Placement group ──────────────────────────────────────────────────────────
+  # Default is true (cluster strategy = all instances on the same rack).
+  # For a test environment we prefer spreading across racks to avoid AWS
+  # capacity errors ("InsufficientInstanceCapacity") when one rack is full.
+  use_placement_group = false
+
   # ── Disabled features (cost reduction for test environment) ─────────────────
   clients_number               = 0 # DevStack joins as client via user_data
   data_services_number         = 0

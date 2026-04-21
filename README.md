@@ -211,18 +211,23 @@ manila create --share-type weka_wekafs --name test-wekafs WEKAFS 1
 # Wait for available status
 manila list
 
-# Grant access
+# Grant access (NFS only — WEKAFS access rules are rejected; see note below)
 manila access-allow test-nfs ip 10.0.0.0/8 --access-level rw
-manila access-allow test-wekafs user myuser --access-level rw
 
 # List access rules
 manila access-list test-nfs
-manila access-list test-wekafs
 
 # Check export locations
 manila share-export-location-list test-nfs
 manila share-export-location-list test-wekafs
 ```
+
+> **WEKAFS access rules:** `manila access-allow` on a WEKAFS share will return
+> `error` state. Access control for WEKAFS shares is managed via Weka's own
+> authentication layer (filesystem `auth_required` and mount tokens), not via
+> Manila access rules. Use network-level controls (VPC security groups) for
+> WEKAFS share security. See
+> [Known Issues §6](https://github.com/mbookham7/manila-weka-driver/blob/main/docs/known-issues.md#6-wekafs-shares-do-not-support-manila-access-rules).
 
 Both `NFS` and `WEKAFS` protocols are supported by the driver. The driver
 automatically patches Manila's `SUPPORTED_SHARE_PROTOCOLS` to add `WEKAFS`

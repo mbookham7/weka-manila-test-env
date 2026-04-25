@@ -4,6 +4,9 @@ Terraform-based AWS test environment for end-to-end testing of the
 [Manila Weka driver](https://github.com/mbookham7/manila-weka-driver) against
 a real Weka storage cluster.
 
+**Guides:**
+- [Demo: POSIX Share Lifecycle](docs/demo-posix-share-lifecycle.md) — create, extend, shrink and delete a share via the Manila CLI
+
 ## Architecture
 
 ```

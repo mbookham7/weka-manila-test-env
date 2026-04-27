@@ -72,7 +72,7 @@ variable "weka_instance_type" {
 variable "weka_version" {
   description = "Weka software version to deploy. Must match a version available for your get_weka_io_token."
   type        = string
-  default     = "4.4.10.196"
+  default     = "5.1.0.516"
 }
 
 # ─── DevStack sizing ──────────────────────────────────────────────────────────

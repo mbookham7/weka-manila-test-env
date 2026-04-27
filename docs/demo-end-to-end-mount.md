@@ -244,7 +244,6 @@ source /opt/stack/devstack/openrc admin admin
 
 # Verify WekaFS kernel module
 lsmod | grep wekafs
-weka status
 
 # Create share
 manila type-create weka_wekafs false --extra-specs share_backend_name=weka

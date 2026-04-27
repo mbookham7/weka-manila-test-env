@@ -408,7 +408,7 @@ lsmod | grep wekafs
 cat /proc/filesystems | grep weka
 
 # Try loading manually
-sudo modprobe wekafs
+sudo modprobe wekafsio
 
 # Check Weka agent status
 weka status
@@ -427,7 +427,7 @@ weka local status
 To reinstall the agent:
 ```bash
 curl -sk https://<weka_alb_dns>:14000/dist/v1/install | bash
-sudo modprobe wekafs
+sudo modprobe wekafsio
 ```
 
 ## Directory Structure

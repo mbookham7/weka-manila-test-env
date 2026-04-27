@@ -123,6 +123,19 @@ resource "aws_security_group" "weka" {
     cidr_blocks = [var.vpc_cidr]
   }
 
+  # Full cluster fabric access from DevStack subnet — required for WekaFS
+  # POSIX client mounts (Manila driver internal mounts + end-to-end demo).
+  # The Weka client container communicates with backend nodes on a range of
+  # TCP and UDP ports beyond 14000; restricting to specific ports breaks
+  # cluster join and mount operations.
+  ingress {
+    description = "Weka cluster fabric from DevStack subnet (WekaFS client)"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [var.devstack_subnet_cidr]
+  }
+
   # NFS (port 2049) from within the VPC — required for Manila scenario tests
   # where DevStack VMs mount Weka NFS shares via the NFS protocol gateway.
   ingress {

@@ -40,6 +40,12 @@ DEVSTACK_BRANCH="${devstack_branch}"
 DRIVER_BRANCH="${driver_branch}"
 ADMIN_PASSWORD="${admin_password}"
 
+# Persist Weka CLI environment for all SSH sessions — used in demo guides.
+echo "WEKA_HOST=$${WEKA_BACKEND}" >> /etc/environment
+echo "WEKA_USERNAME=admin" >> /etc/environment
+echo "WEKA_PASSWORD=$${WEKA_PASSWORD}" >> /etc/environment
+echo "WEKA_ORG=Root" >> /etc/environment
+
 # ─── KERNEL PHASE: Ensure kernel 5.15 for WekaFS compatibility ────────────────
 # Ubuntu 22.04.4+ ships with the HWE kernel (6.8) which breaks the WekaFS
 # kernel module. Phase 1 installs the GA (5.15) kernel and reboots.

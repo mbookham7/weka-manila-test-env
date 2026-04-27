@@ -5,7 +5,11 @@ Terraform-based AWS test environment for end-to-end testing of the
 a real Weka storage cluster.
 
 **Guides:**
-- [Demo: POSIX Share Lifecycle](docs/demo-posix-share-lifecycle.md) — create, extend, shrink and delete a share via the Manila CLI
+- [Demo: POSIX Share Lifecycle](docs/demo-posix-share-lifecycle.md) — create, extend, shrink and delete a WekaFS (POSIX) share
+- [Demo: NFS Share Lifecycle](docs/demo-nfs-share-lifecycle.md) — create an NFS share, manage IP-based access rules, extend, shrink and delete
+- [Demo: Snapshot Lifecycle](docs/demo-snapshot-lifecycle.md) — create a snapshot, revert-to-snapshot for instant recovery, and clone a snapshot to a new share
+- [Demo: End-to-End Mount](docs/demo-end-to-end-mount.md) — mount a WekaFS share with the kernel client, write/read data, and observe live quota updates
+- [Demo: Manage and Unmanage](docs/demo-manage-unmanage.md) — adopt an existing Weka filesystem into Manila management and release it without data loss
 
 ## Architecture
 

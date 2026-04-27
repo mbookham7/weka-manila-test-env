@@ -41,9 +41,9 @@ DRIVER_BRANCH="${driver_branch}"
 ADMIN_PASSWORD="${admin_password}"
 
 # Persist Weka CLI environment for all SSH sessions — used in demo guides.
+# WEKA_PASSWORD is added after it is fetched from Secrets Manager (Step 4).
 echo "WEKA_HOST=$${WEKA_BACKEND}" >> /etc/environment
 echo "WEKA_USERNAME=admin" >> /etc/environment
-echo "WEKA_PASSWORD=$${WEKA_PASSWORD}" >> /etc/environment
 echo "WEKA_ORG=Root" >> /etc/environment
 
 # ─── KERNEL PHASE: Ensure kernel 5.15 for WekaFS compatibility ────────────────
@@ -263,6 +263,7 @@ if [ -z "$${WEKA_PASSWORD}" ]; then
 fi
 
 echo "Weka password fetched successfully."
+echo "WEKA_PASSWORD=$${WEKA_PASSWORD}" >> /etc/environment
 echo "=== STEP 4 complete ==="
 
 # ─── STEP 4b: Delete default Weka filesystem to free up cluster capacity ───────
